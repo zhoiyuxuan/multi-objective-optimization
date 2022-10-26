@@ -1,5 +1,6 @@
 from PySide2.QtWidgets import QApplication
 from PySide2.QtUiTools import QUiLoader
+from PySide2.QtGui import QIcon
 
 import socket
 import time
@@ -36,7 +37,7 @@ class Stats:
                 self.ui.startbutton.setEnabled(False)
                 self.ui.endbutton.setEnabled(True)
             except ConnectionRefusedError:
-                self.ui.statuslabel.setText('签到服务器端未开启，请联系周宁组长')
+                self.ui.statuslabel.setText('不在科中范围or签到服务器端未开启')
 
     def close(self):
         self.s.send(bytes('END'.encode('utf-8')))
@@ -50,6 +51,7 @@ class Stats:
 
 if __name__ == '__main__':
     app = QApplication([])
+    app.setWindowIcon(QIcon('elab.png'))
     stats = Stats()
     stats.ui.show()
     app.exec_()
