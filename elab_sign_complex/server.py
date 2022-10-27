@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 #对于每个子socket，都有一个监听信息的线程，一个心跳线程
 
-IP = '192.168.1.186'
+IP = '192.168.1.227'
 PORT = 9090
 BUFLEN = 1024
 
@@ -56,7 +56,9 @@ class ServerSocket(Socket):
 
     def wait_connection(self,server_socket):
         while True: #true必须跟上阻塞函数
+            socket.setdefaulttimeout(20)
             client, addr = server_socket.accept() #阻塞等待连接,建立一个新的套接字处理这个client
+
             if client in self.clients:
                 print('老用户再次登录')
             elif addr[0] not in self.ips:
@@ -97,20 +99,13 @@ class ServerSocket(Socket):
         print(f'listen message from {self.client2ip[client]} start')
 
     def receive_msg(self,client):
-        heartbeat = time.time()
         while True:#必须有阻塞
             time.sleep(1)
-            #处理心跳
-            if time.time()-heartbeat > 20:
-                print('用户超过20s没有发送心跳')
-                #todo:记录用户时长
-                self.send_msg(client,'pipebreak')
-                self.log_out(client)
-                return
             try:
                 if client in self.clients:
-                    data = client.recv(BUFLEN).decode('utf-8') #阻塞
-                    print(data,f'from {self.client2ip[client]}')
+                    data = client.recv(BUFLEN).decode('utf-8') #阻塞在这儿了
+                    if data !='HEARTBEAT':
+                        print(data,f'from {self.client2ip[client]}')
                     # 连接中止
                     if data == 'END':
                         # todo:记录用户时长
@@ -119,7 +114,7 @@ class ServerSocket(Socket):
                         self.log_out(client)
                     # 心跳信息
                     elif data == 'HEARTBEAT':
-                        heartbeat = time.time()
+                        pass
                     # 连接开始
                     else:
                         name = data.split()[1]
@@ -130,6 +125,11 @@ class ServerSocket(Socket):
                 print('用户强制中断了一个连接')
                 self.log_out(client)
                 return
+            except socket.timeout:
+                print('用户超过20s没有发送心跳')
+                #todo:记录用户时长
+                self.send_msg(client,'pipebreak')
+                self.log_out(client)
 
 
     #清除client在线信息并断开连接

@@ -1,7 +1,7 @@
 import socket, threading
 import time
 
-IP = '192.168.1.186'
+IP = '127.0.0.1'
 PORT = 9090
 BUFLEN = 1024
 

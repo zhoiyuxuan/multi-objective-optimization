@@ -11,7 +11,7 @@ BUFLEN = 1024
 
 class Stats:
     def __init__(self):
-        self.ui = QUiLoader().load('client.ui')
+        self.ui = QUiLoader().load('ui/client.ui')
         self.ui.startbutton.clicked.connect(self.connect)
         self.ui.endbutton.clicked.connect(self.close)
 

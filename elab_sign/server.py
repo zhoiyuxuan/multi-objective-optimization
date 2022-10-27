@@ -34,23 +34,14 @@ def init():
             client.send(bytes(f'登录成功 {current_time}'.encode('utf-8')))
             r = threading.Thread(target=receive_msg, args=(client,addr,))
             r.start()
-        #同一台电脑不能登录2次
+        #todo:同一台电脑不能登录2次
         else:
             print('同一台电脑两次登录，登录失败')
             client.send(bytes('登录失败'.encode('utf-8')))
 
-def log_out(client,addr):
-    clients.remove(client)
-    ips.remove(addr[0])
-    client.close()
-
 def receive_msg(client,addr):
-    heartbeat = time.time()
     while True:
         time.sleep(1)
-        if time.time()-heartbeat > 20:
-            log_out(client,addr)
-            return
         try:
             if client in clients:
                 data = client.recv(BUFLEN).decode('utf-8')
@@ -71,23 +62,35 @@ def receive_msg(client,addr):
                         f = open('login.txt', 'a+')
                         f.write(f'{user} {last_login} {exit_time} {duration}\n')
                         f.close()
-
+                        clients.remove(client)
+                        ips.remove(addr[0])
                         hour = int(duration/3600)
                         min = int(duration%3600/60)
                         second = int(duration%60)
                         client.send(bytes(f'记录成功 {hour}:{min}:{second}'.encode('utf-8')))
-                        log_out(client,addr)
                         return #释放线程
 
                     else:
                         print(f'{user} 挂机超过1天，不予记录')
                         client.send(bytes('挂机超过1天，不予记录'.encode('utf-8')))
-                        log_out(client,addr)
+                        clients.remove(client)
+                        ips.remove(addr[0])
                         return  # 释放线程
 
                 #如果接收到心跳
                 elif data == 'heartbeat':
-                    heartbeat = time.time()
+                    cur_time = time.time()
+                    try:
+                        if cur_time-heartbeat[addr]>25:
+                            print('对方已掉线')
+                            client.close() #关闭socket
+                            clients.remove(client)
+                            ips.remove(addr[0])
+                        else:
+                            print('receive heartbeat',addr)
+                            heartbeat[addr] = cur_time
+                    except KeyError:
+                        heartbeat[addr] = cur_time
 
                 # 不是退出信息的话,就是登录信息
                 else:
@@ -101,6 +104,7 @@ def receive_msg(client,addr):
 
     #如果是强制退出了：
         except BaseException as error:
+
             print('用户强制中断了一个链接')
             if client in clients:
                 exit_time = time.time()
@@ -118,14 +122,17 @@ def receive_msg(client,addr):
                     f = open('login.txt', 'a+')
                     f.write(f'{user} {last_login} {exit_time} {duration}\n')
                     f.close()
-                    log_out(client,addr)
+                    clients.remove(client)
+                    ips.remove(addr[0])
                 else:
                     print(f'{user} 挂机超过1天，不予记录')
-                    log_out(client,addr)
+                    clients.remove(client)
+                    ips.remove(addr[0])
+
 
 t1 = threading.Thread(target=init)
 t1.start()
 
 while True:
     print(f'当前在线人数为 {len(clients)}')
-    time.sleep(5)
+    time.sleep(30)

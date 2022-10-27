@@ -2,9 +2,11 @@ import socket,threading,time
 from PySide2.QtWidgets import QApplication
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtGui import QIcon
+from PySide2 import QtCore, QtWidgets
+import sys,os
 
 
-IP = '192.168.1.186'
+IP = '192.168.1.227'
 PORT = 9090
 BUFLEN = 1024
 
@@ -49,7 +51,7 @@ class Stats:
 
             #主动登录失败，说明是服务器orip的问题
             except TimeoutError:
-                self.ui.statuslabel.setText('连接超时，请确认IP是否正确')
+                self.ui.statuslabel.setText('连接超时，请确认wifi是否正确')
                 print('连接超时，请确认IP是否正确')
             except ConnectionRefusedError:
                 self.ui.statuslabel.setText('服务器未启动，请联系周宁')
@@ -60,7 +62,7 @@ class Stats:
         hour = int(duration / 3600)
         min = int(duration % 3600 / 60)
         second = int(duration % 60)
-        return f' {hour} {min} {second}'
+        return f' {hour}:{min}:{second}'
 
     def deal_heartbeat(self):
         while 1:
@@ -69,10 +71,17 @@ class Stats:
                 self.send_msg('HEARTBEAT')
             #处理服务器断联
             except ConnectionResetError:
-                self.ui.statuslabel.setText('服务器关闭连接,本次时间已记录',self.duration_count())
+                self.ui.statuslabel.setText(f'服务器关闭连接,本次时间已记录 {self.duration_count()}')
                 self.ui.startbutton.setEnabled(True)
                 self.ui.endbutton.setEnabled(False)
-                return
+                break
+            except OSError:
+                self.ui.statuslabel.setText(f'服务器关闭连接,本次时间已记录 {self.duration_count()}')
+                self.ui.startbutton.setEnabled(True)
+                self.ui.endbutton.setEnabled(False)
+                break
+        return
+
 
     def receive_msg(self):
         while 1:
@@ -80,19 +89,17 @@ class Stats:
             try:
                 data = self.client_socket.recv(BUFLEN).decode('utf-8')
                 if data == '签到时长已记录':
-                    self.ui.statuslabel.setText('本次时间已记录',self.duration_count())
-                elif data =='pipebreak':
-                    self.ui.statuslabel.setText('socket连接断开，时间已记录',self.duration_count())
-                    self.ui.startbutton.setEnabled(True)
-                    self.ui.endbutton.setEnabled(False)
+                    self.ui.statuslabel.setText(f'本次时间已记录 {self.duration_count()}')
                 else:
                     self.ui.statuslabel.setText(data)
             #处理服务器突然断联
             except ConnectionResetError:
-                self.ui.statuslabel.setText('服务器关闭连接,本次时间已记录',self.duration_count())
+                self.ui.statuslabel.setText(f'服务器关闭连接,本次时间已记录 {self.duration_count()}')
                 self.ui.startbutton.setEnabled(True)
                 self.ui.endbutton.setEnabled(False)
                 return
+            except OSError:
+                pass
 
     def send_msg(self,msg):
         self.client_socket.send(bytes(msg.encode('utf-8')))
@@ -102,11 +109,14 @@ class Stats:
         self.send_msg(msg)
         time.sleep(2.5) #等关闭信息发过来
         self.client_socket.close()
+        self.ui.statuslabel.setText(f'本次时间已记录 {self.duration_count()}')
         self.ui.startbutton.setEnabled(True)
         self.ui.endbutton.setEnabled(False)
 
 
 if __name__ == '__main__':
+    os.environ["QT_MAC_WANTS_LAYER"] = '1'
+    QtCore.QCoreApplication.setAttribute(QtCore.Qt.AA_ShareOpenGLContexts)
     app = QApplication([])
     app.setWindowIcon(QIcon('elab.png'))
     stats = Stats()
