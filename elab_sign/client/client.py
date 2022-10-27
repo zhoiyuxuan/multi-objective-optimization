@@ -18,9 +18,15 @@ class Stats:
 
     #发送心跳
     def send_heartbeat(self):
-        while True:
-            self.s.send(bytes('heartbeat'.encode('utf-8')))
-            time.sleep(10)
+        try:
+            while True:
+                self.s.send(bytes('heartbeat'.encode('utf-8')))
+                time.sleep(10)
+        except ConnectionResetError:
+            self.ui.statuslabel.setText('服务器强制结束')
+            self.ui.startbutton.setEnabled(True)
+            self.ui.endbutton.setEnabled(False)
+            return
 
     def connect(self):
         if self.ui.nameinfo.text() == '':
@@ -35,7 +41,6 @@ class Stats:
                 t.start()
 
                 data = self.s.recv(BUFLEN).decode('utf-8')
-                time.sleep(1)#让服务器端开启线程
                 self.ui.statuslabel.setText(data)
                 if data == '登录失败':
                     self.s.close()
@@ -44,10 +49,12 @@ class Stats:
                     name = self.ui.nameinfo.text()
                     msg = f'{time.time()} {name}'
                     self.s.send(bytes(msg.encode('utf-8')))
-                self.ui.startbutton.setEnabled(False)
-                self.ui.endbutton.setEnabled(True)
+                    self.ui.startbutton.setEnabled(False)
+                    self.ui.endbutton.setEnabled(True)
             except ConnectionRefusedError:
-                self.ui.statuslabel.setText('不在科中范围or签到服务器端未开启')
+                self.ui.statuslabel.setText('不在范围or签到服务器端未开启')
+            except TimeoutError:
+                self.ui.statuslabel.setText('连接超时，请检查ip')
 
     def close(self):
         self.s.send(bytes('END'.encode('utf-8')))
@@ -61,7 +68,7 @@ class Stats:
 
 if __name__ == '__main__':
     app = QApplication([])
-    app.setWindowIcon(QIcon('elab.png'))
+    app.setWindowIcon(QIcon('../../elab_sign_complex/elab.png'))
     stats = Stats()
     stats.ui.show()
     app.exec_()
