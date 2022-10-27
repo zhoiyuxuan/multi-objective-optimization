@@ -2,10 +2,10 @@ from PySide2.QtWidgets import QApplication
 from PySide2.QtUiTools import QUiLoader
 from PySide2.QtGui import QIcon
 
-import socket
+import socket,threading
 import time
 
-IP = '10.5.201.244'
+IP = '192.168.1.186'
 PORT = 9090
 BUFLEN = 1024
 
@@ -16,6 +16,11 @@ class Stats:
         self.ui.startbutton.clicked.connect(self.connect)
         self.ui.endbutton.clicked.connect(self.close)
 
+    #发送心跳
+    def send_heartbeat(self):
+        while True:
+            self.s.send(bytes('heartbeat'.encode('utf-8')))
+            time.sleep(10)
 
     def connect(self):
         if self.ui.nameinfo.text() == '':
@@ -24,6 +29,11 @@ class Stats:
             try:
                 self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 self.s.connect((IP,PORT))
+
+                #心跳线程启动
+                t = threading.Thread(target=self.send_heartbeat)
+                t.start()
+
                 data = self.s.recv(BUFLEN).decode('utf-8')
                 time.sleep(1)#让服务器端开启线程
                 self.ui.statuslabel.setText(data)

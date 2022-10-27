@@ -5,7 +5,7 @@ import threading
 import datetime
 import time
 
-IP = '192.168.1.227'
+IP = '192.168.1.186'
 PORT = 9090
 BUFLEN = 1024
 
@@ -19,6 +19,7 @@ ips=[]
 clients = []
 login_info={}
 addr_user={}
+heartbeat={}
 
 def init():
     while True:
@@ -37,7 +38,6 @@ def init():
         else:
             print('同一台电脑两次登录，登录失败')
             client.send(bytes('登录失败'.encode('utf-8')))
-
 
 def receive_msg(client,addr):
     while True:
@@ -76,6 +76,21 @@ def receive_msg(client,addr):
                         clients.remove(client)
                         ips.remove(addr[0])
                         return  # 释放线程
+
+                #如果接收到心跳
+                elif data == 'heartbeat':
+                    cur_time = time.time()
+                    try:
+                        if cur_time-heartbeat[addr]>25:
+                            print('对方已掉线')
+                            client.close() #关闭socket
+                            clients.remove(client)
+                            ips.remove(addr[0])
+                        else:
+                            print('receive heartbeat',addr)
+                            heartbeat[addr] = cur_time
+                    except KeyError:
+                        heartbeat[addr] = cur_time
 
                 # 不是退出信息的话,就是登录信息
                 else:
@@ -120,4 +135,4 @@ t1.start()
 
 while True:
     print(f'当前在线人数为 {len(clients)}')
-    time.sleep(5)
+    time.sleep(30)

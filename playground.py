@@ -15,3 +15,4 @@ for i in chang:
 
 print(f'有{square}个特殊正方形')
 print(f'其中面积最大是{max(area)},面积最小是{min(area)}')
+
