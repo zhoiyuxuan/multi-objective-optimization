@@ -3,7 +3,7 @@ from abc import ABCMeta, abstractmethod
 
 #对于每个子socket，都有一个监听信息的线程，一个心跳线程
 
-IP = '192.168.1.227'
+IP = '192.168.1.186'
 PORT = 9090
 BUFLEN = 1024
 
@@ -68,8 +68,9 @@ class ServerSocket(Socket):
                 self.clients.append(client)
                 self.ips.append(addr[0])
                 #调用发送方法发送登录成功信息给client
-                login_time = time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(time.time()))
+                login_time = time.time()
                 self.login_time[addr[0]] = login_time
+                login_time = time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(login_time))
                 msg = f'登录成功:{login_time}'
                 self.send_msg(client, msg)
                 #开启监听线程，监听来自该client socket的所有信息
@@ -84,7 +85,8 @@ class ServerSocket(Socket):
 
     def send_msg(self,client,msg):
         client.send(bytes(msg.encode('utf-8')))
-        print(f'send {msg} to {self.client2ip[client]}')
+        if msg !='ack':
+            print(f'send {msg} to {self.client2ip[client]}')
 
     '''
     监听信息：
@@ -109,27 +111,83 @@ class ServerSocket(Socket):
                     # 连接中止
                     if data == 'END':
                         # todo:记录用户时长
+                        user = self.ip2user[self.client2ip[client]]
+                        logout_time = time.time()
+                        duration = logout_time - self.login_time[self.client2ip[client]]
+                        login_time = time.strftime("%Y-%m-%d %H:%M:%S",
+                                                   time.localtime(self.login_time[self.client2ip[client]]))
+                        logout_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(logout_time))
+
+                        f = open('login.txt', 'a+')
+                        f.write(f'{user} {login_time} {logout_time} {duration}\n')
+                        f.close()
+
                         msg = '签到时长已记录'
                         self.send_msg(client, msg)
                         self.log_out(client)
                     # 心跳信息
                     elif data == 'HEARTBEAT':
-                        pass
+                        msg = 'ack'
+                        self.send_msg(client,msg)
                     # 连接开始
                     else:
-                        name = data.split()[1]
-                        self.ip2user[self.client2ip[client]] = name
+                        try:#粘包情况，重新发送
+                            name = data.split()[2]
+                            self.send_msg(client,'服务器繁忙，请重试')
+                        except:
+                            name = data.split()[1]
+                            self.ip2user[self.client2ip[client]] = name
 
             except BaseException as error:
                 # todo:记录用户时长
+                user = self.ip2user[self.client2ip[client]]
+                logout_time = time.time()
+                duration = logout_time- self.login_time[self.client2ip[client]]
+                login_time = time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(self.login_time[self.client2ip[client]]))
+                logout_time = time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(logout_time))
+
+                f = open('login.txt', 'a+')
+                f.write(f'{user} {login_time} {logout_time} {duration}\n')
+                f.close()
+
+
                 print('用户强制中断了一个连接')
                 self.log_out(client)
                 return
+
             except socket.timeout:
                 print('用户超过20s没有发送心跳')
                 #todo:记录用户时长
+                user = self.ip2user[self.client2ip[client]]
+                logout_time = time.time()
+                duration = logout_time - self.login_time[self.client2ip[client]]
+                login_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.login_time[self.client2ip[client]]))
+                logout_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(logout_time))
+
+                f = open('login.txt', 'a+')
+                f.write(f'{user} {login_time} {logout_time} {duration}\n')
+                f.close()
+
                 self.send_msg(client,'pipebreak')
                 self.log_out(client)
+                return
+
+            except:
+                print('用户登录出错')
+                # todo:记录用户时长
+                user = self.ip2user[self.client2ip[client]]
+                logout_time = time.time()
+                duration = logout_time - self.login_time[self.client2ip[client]]
+                login_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(self.login_time[self.client2ip[client]]))
+                logout_time = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(logout_time))
+
+                f = open('login.txt', 'a+')
+                f.write(f'{user} {login_time} {logout_time} {duration}\n')
+                f.close()
+
+                self.send_msg(client, 'pipebreak')
+                self.log_out(client)
+                return
 
 
     #清除client在线信息并断开连接
